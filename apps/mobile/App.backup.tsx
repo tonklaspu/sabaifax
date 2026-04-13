@@ -184,39 +184,31 @@ function BottomNav() {
 
   return (
     <View style={styles.bnav}>
-      {tabs.map((tab, i) => {
-        if (i === 2) {
-          return (
-            <React.Fragment key="fab">
-              <View style={styles.bniItem}>
-                <Text style={styles.bniIcon}>{tabs[i].icon}</Text>
-                <Text style={[styles.bniLabel, tabs[i].active && styles.bniLabelActive]}>
-                  {tabs[i].label}
-                </Text>
-              </View>
-              {/* FAB */}
-              <View style={styles.fabWrap}>
-                <TouchableOpacity style={styles.fab} activeOpacity={0.8}>
-                  <Text style={styles.fabText}>+</Text>
-                </TouchableOpacity>
-              </View>
-              {/* Continue after FAB */}
-            </React.Fragment>
-          )
-        }
-        return (
-          <TouchableOpacity key={tab.label} style={styles.bniItem}>
+      {tabs.map((tab, i) => (
+        <React.Fragment key={tab.label}>
+          
+          {/* แทรกปุ่ม FAB ไว้ตรงกลาง (ก่อนเริ่มแท็บที่ 3) */}
+          {i === 2 && (
+            <View style={styles.fabWrap}>
+              <TouchableOpacity style={styles.fab} activeOpacity={0.8}>
+                <Text style={styles.fabText}>+</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* ตัวแท็บปกติ */}
+          <TouchableOpacity style={styles.bniItem}>
             <Text style={styles.bniIcon}>{tab.icon}</Text>
             <Text style={[styles.bniLabel, tab.active && styles.bniLabelActive]}>
               {tab.label}
             </Text>
           </TouchableOpacity>
-        )
-      })}
+          
+        </React.Fragment>
+      ))}
     </View>
   )
 }
-
 // ── Main Screen ────────────────────────────────────
 export default function DashboardScreen() {
   return (
