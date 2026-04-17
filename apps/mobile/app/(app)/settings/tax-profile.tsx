@@ -15,6 +15,29 @@ function fmt(n: number) {
   return n > 0 ? n.toLocaleString('th-TH') : ''
 }
 
+// Validate เลขบัตรประชาชนไทย (13 หลัก + checksum mod 11)
+function isValidThaiNationalId(id: string): boolean {
+  const digits = id.replace(/\D/g, '')
+  if (digits.length !== 13) return false
+  let sum = 0
+  for (let i = 0; i < 12; i++) sum += Number(digits[i]) * (13 - i)
+  const check = (11 - (sum % 11)) % 10
+  return check === Number(digits[12])
+}
+
+// Format XXXXX-XXXXX-XX-X (รูปแบบบัตรประชาชน)
+function formatNationalId(raw: string): string {
+  const d = raw.replace(/\D/g, '').slice(0, 13)
+  const parts = [
+    d.slice(0, 1),
+    d.slice(1, 5),
+    d.slice(5, 10),
+    d.slice(10, 12),
+    d.slice(12, 13),
+  ].filter(Boolean)
+  return parts.join('-')
+}
+
 // ── Sub-components ────────────────────────────────
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
@@ -118,12 +141,19 @@ function AmountRow({
 // ── Main Screen ───────────────────────────────────
 
 export default function TaxProfileScreen() {
-  const { profile, setField, buildDeductions } = useTaxProfileStore()
+  const { profile, setField, buildDeductions, saveProfile } = useTaxProfileStore()
   const { grossIncome, setGrossIncome: _setIncome, compute } = useTaxStore()
 
-  const handleApply = () => {
+  const nidValid = !profile.nationalId || isValidThaiNationalId(profile.nationalId)
+
+  const handleApply = async () => {
+    if (!nidValid) return
+    try {
+      await saveProfile()
+    } catch (e) {
+      console.warn('saveProfile failed', e)
+    }
     const deductions = buildDeductions(grossIncome)
-    // Replace deductions in tax store
     useTaxStore.setState({ deductions })
     compute()
     router.back()
@@ -151,6 +181,46 @@ export default function TaxProfileScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+
+        {/* ── ข้อมูลตามบัตรประชาชน ── */}
+        <SectionCard title="ข้อมูลตามบัตรประชาชน">
+          <Text style={styles.sectionHint}>
+            ใช้สำหรับจับคู่ใบกำกับภาษีอิเล็กทรอนิกส์ (e-Tax Invoice) ตามเกณฑ์กรมสรรพากร
+          </Text>
+
+          <View style={styles.textFieldWrap}>
+            <Text style={styles.textFieldLabel}>เลขประจำตัวประชาชน</Text>
+            <TextInput
+              style={[
+                styles.textInput,
+                !nidValid && styles.textInputError,
+              ]}
+              value={formatNationalId(profile.nationalId)}
+              onChangeText={(t) => setField('nationalId', t.replace(/\D/g, '').slice(0, 13))}
+              placeholder="X-XXXX-XXXXX-XX-X"
+              placeholderTextColor={Colors.text.disabled}
+              keyboardType="numeric"
+              maxLength={17}
+            />
+            {!nidValid && (
+              <Text style={styles.errorText}>เลขบัตรประชาชนไม่ถูกต้อง</Text>
+            )}
+          </View>
+
+          <View style={styles.textFieldWrap}>
+            <Text style={styles.textFieldLabel}>ที่อยู่ตามบัตรประชาชน</Text>
+            <TextInput
+              style={[styles.textInput, styles.textArea]}
+              value={profile.address}
+              onChangeText={(t) => setField('address', t)}
+              placeholder="บ้านเลขที่ / หมู่ / ถนน / ตำบล / อำเภอ / จังหวัด / รหัสไปรษณีย์"
+              placeholderTextColor={Colors.text.disabled}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+          </View>
+        </SectionCard>
 
         {/* ── ครอบครัว ── */}
         <SectionCard title="ครอบครัว">
@@ -382,6 +452,45 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   applyBtnText: { fontSize: 15, fontWeight: '800', color: Colors.navy[700] },
+
+  // Text fields (National ID / Address)
+  sectionHint: {
+    fontSize: 11,
+    color: Colors.text.muted,
+    lineHeight: 16,
+    marginBottom: 8,
+  },
+  textFieldWrap: {
+    paddingVertical: 8,
+    gap: 6,
+  },
+  textFieldLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.text.secondary,
+  },
+  textInput: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    color: Colors.text.primary,
+  },
+  textInputError: {
+    borderColor: Colors.error?.[500] ?? '#ef4444',
+  },
+  textArea: {
+    minHeight: 72,
+    paddingTop: 10,
+  },
+  errorText: {
+    fontSize: 11,
+    color: Colors.error?.[500] ?? '#ef4444',
+    marginTop: 2,
+  },
 
   disclaimer: {
     fontSize: 11,

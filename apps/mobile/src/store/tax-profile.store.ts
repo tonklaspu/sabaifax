@@ -1,7 +1,12 @@
 import { create } from 'zustand'
+import { api } from '../services/api.client'
 import { TaxDeduction } from '../utils/tax'
 
 export interface TaxProfile {
+  // ── ข้อมูลสำหรับจับคู่ใบกำกับภาษี (e-Tax Invoice) ตามเกณฑ์กรมสรรพากร
+  nationalId: string        // เลขบัตรประชาชน 13 หลัก
+  address: string           // ที่อยู่ตามบัตรประชาชน
+
   // ── ส่วนตัว
   hasSpouse: boolean
   children: number          // จำนวนบุตร
@@ -28,11 +33,16 @@ export interface TaxProfile {
 
 interface TaxProfileStore {
   profile: TaxProfile
+  loading: boolean
   setField: <K extends keyof TaxProfile>(key: K, value: TaxProfile[K]) => void
+  fetchProfile: () => Promise<void>
+  saveProfile: () => Promise<void>
   buildDeductions: (grossIncome: number) => TaxDeduction[]
 }
 
 const DEFAULT_PROFILE: TaxProfile = {
+  nationalId: '',
+  address: '',
   hasSpouse: false,
   children: 0,
   parents: 0,
@@ -50,22 +60,39 @@ const DEFAULT_PROFILE: TaxProfile = {
 
 export const useTaxProfileStore = create<TaxProfileStore>((set, get) => ({
   profile: DEFAULT_PROFILE,
+  loading: false,
 
   setField: (key, value) => set((s) => ({ profile: { ...s.profile, [key]: value } })),
+
+  fetchProfile: async () => {
+    set({ loading: true })
+    try {
+      const data = await api.get('/tax/profile')
+      if (data) set({ profile: { ...DEFAULT_PROFILE, ...data } })
+    } finally {
+      set({ loading: false })
+    }
+  },
+
+  saveProfile: async () => {
+    set({ loading: true })
+    try {
+      await api.put('/tax/profile', get().profile)
+    } finally {
+      set({ loading: false })
+    }
+  },
 
   buildDeductions: (grossIncome) => {
     const p = get().profile
     const deductions: TaxDeduction[] = []
 
-    // ── ค่าลดหย่อนส่วนตัว (ทุกคนได้เสมอ)
     deductions.push({ id: 'personal', label: 'ค่าลดหย่อนส่วนตัว', category: 'personal', amount: 60_000 })
 
-    // ── คู่สมรส
     if (p.hasSpouse) {
       deductions.push({ id: 'spouse', label: 'คู่สมรส (ไม่มีรายได้)', category: 'spouse', amount: 60_000 })
     }
 
-    // ── บุตร (30,000/คน)
     if (p.children > 0) {
       deductions.push({
         id: 'child',
@@ -75,7 +102,6 @@ export const useTaxProfileStore = create<TaxProfileStore>((set, get) => ({
       })
     }
 
-    // ── เลี้ยงดูบิดามารดา (30,000/คน)
     if (p.parents > 0) {
       deductions.push({
         id: 'parent',
@@ -85,7 +111,6 @@ export const useTaxProfileStore = create<TaxProfileStore>((set, get) => ({
       })
     }
 
-    // ── ประกันชีวิต
     if (p.lifeInsurance > 0) {
       deductions.push({
         id: 'lifeInsurance',
@@ -95,7 +120,6 @@ export const useTaxProfileStore = create<TaxProfileStore>((set, get) => ({
       })
     }
 
-    // ── ประกันสุขภาพ
     if (p.healthInsurance > 0) {
       deductions.push({
         id: 'healthInsurance',
@@ -105,7 +129,6 @@ export const useTaxProfileStore = create<TaxProfileStore>((set, get) => ({
       })
     }
 
-    // ── ประกันสุขภาพบิดามารดา
     if (p.parentHealthInsurance > 0) {
       deductions.push({
         id: 'parentHealthInsurance',
@@ -115,7 +138,6 @@ export const useTaxProfileStore = create<TaxProfileStore>((set, get) => ({
       })
     }
 
-    // ── ประกันสังคม
     if (p.socialSecurity > 0) {
       deductions.push({
         id: 'socialSecurity',
@@ -125,7 +147,6 @@ export const useTaxProfileStore = create<TaxProfileStore>((set, get) => ({
       })
     }
 
-    // ── กองทุนสำรองเลี้ยงชีพ
     if (p.providentFund > 0) {
       deductions.push({
         id: 'providentFund',
@@ -135,7 +156,6 @@ export const useTaxProfileStore = create<TaxProfileStore>((set, get) => ({
       })
     }
 
-    // ── RMF
     if (p.rmf > 0) {
       const rmfCap = Math.min(grossIncome * 0.30, 500_000)
       deductions.push({
@@ -146,7 +166,6 @@ export const useTaxProfileStore = create<TaxProfileStore>((set, get) => ({
       })
     }
 
-    // ── SSF
     if (p.ssf > 0) {
       const ssfCap = Math.min(grossIncome * 0.30, 200_000)
       deductions.push({
@@ -157,7 +176,6 @@ export const useTaxProfileStore = create<TaxProfileStore>((set, get) => ({
       })
     }
 
-    // ── ดอกเบี้ยบ้าน
     if (p.mortgageInterest > 0) {
       deductions.push({
         id: 'mortgage',
@@ -167,7 +185,6 @@ export const useTaxProfileStore = create<TaxProfileStore>((set, get) => ({
       })
     }
 
-    // ── Easy E-Receipt
     if (p.easyEReceipt > 0) {
       deductions.push({
         id: 'easyEReceipt',
@@ -177,13 +194,12 @@ export const useTaxProfileStore = create<TaxProfileStore>((set, get) => ({
       })
     }
 
-    // ── เงินบริจาค (คำนวณหลังหักลดหย่อนอื่น — ใช้ค่าดิบก่อน)
     if (p.donation > 0) {
       deductions.push({
         id: 'donation',
         label: 'เงินบริจาค',
         category: 'donation',
-        amount: p.donation, // cap จะถูกคำนวณแยกในหน้า tax
+        amount: p.donation,
       })
     }
 

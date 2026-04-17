@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1776188053687,
+      "tag": "0000_high_electro",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776192000000,
+      "tag": "0001_add_wallet_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776352330548,
+      "tag": "0002_wild_invisible_woman",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1776421937808,
+      "tag": "0003_clear_thundra",
+      "breakpoints": true
+    }
+  ]
+}

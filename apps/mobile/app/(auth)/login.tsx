@@ -103,14 +103,14 @@ function InputField({
 // ── Main Screen ───────────────────────────────────
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
-  const [emailFocused, setEmailFocused] = useState(false)
+  const [identifierFocused, setIdentifierFocused] = useState(false)
   const [passwordFocused, setPasswordFocused] = useState(false)
   const [loading, setLoading] = useState(false)
   const [globalError, setGlobalError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<{
-    email?: string
+    identifier?: string
     password?: string
   }>({})
 
@@ -137,16 +137,16 @@ export default function LoginScreen() {
     lockedUntil ? Math.ceil((lockedUntil - Date.now()) / 1000) : 0
 
   const validate = (): boolean => {
-    const result = loginSchema.safeParse({ email, password })
+    const result = loginSchema.safeParse({ identifier, password })
     if (result.success) {
       setFieldErrors({})
       return true
     }
-    
-    const errors: { email?: string; password?: string } = {}
+
+    const errors: { identifier?: string; password?: string } = {}
     result.error.issues.forEach((e) => {
-    const field = e.path[0] as 'email' | 'password'
-    if (!errors[field]) errors[field] = e.message
+      const field = e.path[0] as 'identifier' | 'password'
+      if (!errors[field]) errors[field] = e.message
     })
     setFieldErrors(errors)
     return false
@@ -168,7 +168,7 @@ export default function LoginScreen() {
     setGlobalError(null)
 
     try {
-      await authService.login(email, password)
+      await authService.login(identifier, password)
       setAttempts(0)
       router.replace('/(app)')
     } catch (e: any) {
@@ -180,7 +180,9 @@ export default function LoginScreen() {
         setLockedUntil(Date.now() + LOCK_DURATION_MS)
         setGlobalError('พยายามเข้าสู่ระบบผิดหลายครั้ง กรุณารอ 30 วินาที')
       } else {
-        setGlobalError('อีเมลหรือรหัสผ่านไม่ถูกต้อง')
+        setGlobalError(e?.message === 'ไม่พบชื่อผู้ใช้นี้'
+          ? 'ไม่พบชื่อผู้ใช้นี้'
+          : 'ข้อมูลเข้าสู่ระบบไม่ถูกต้อง')
       }
     } finally {
       setLoading(false)
@@ -194,6 +196,18 @@ export default function LoginScreen() {
       await authService.loginWithGoogle()
     } catch {
       setGlobalError('เข้าสู่ระบบด้วย Google ไม่สำเร็จ')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleAppleLogin = async () => {
+    setLoading(true)
+    setGlobalError(null)
+    try {
+      await authService.loginWithApple()
+    } catch {
+      setGlobalError('เข้าสู่ระบบด้วย Apple ไม่สำเร็จ')
     } finally {
       setLoading(false)
     }
@@ -227,21 +241,21 @@ export default function LoginScreen() {
               </View>
             )}
 
-            {/* Email */}
+            {/* Email หรือ Username */}
             <InputField
-              label="อีเมล"
-              value={email}
+              label="อีเมล หรือ ชื่อผู้ใช้"
+              value={identifier}
               onChangeText={(v) => {
-                setEmail(v)
-                if (fieldErrors.email) setFieldErrors(p => ({ ...p, email: undefined }))
+                setIdentifier(v)
+                if (fieldErrors.identifier) setFieldErrors(p => ({ ...p, identifier: undefined }))
               }}
-              placeholder="user@email.com"
-              keyboardType="email-address"
-              autoComplete="email"
-              focused={emailFocused}
-              onFocus={() => setEmailFocused(true)}
-              onBlur={() => setEmailFocused(false)}
-              error={fieldErrors.email}
+              placeholder="user@email.com หรือ username"
+              keyboardType="default"
+              autoComplete="off"
+              focused={identifierFocused}
+              onFocus={() => setIdentifierFocused(true)}
+              onBlur={() => setIdentifierFocused(false)}
+              error={fieldErrors.identifier}
               returnKeyType="next"
               onSubmitEditing={() => passwordRef.current?.focus()}
             />
@@ -292,31 +306,20 @@ export default function LoginScreen() {
               }
             </TouchableOpacity>
 
-            {/* OR */}
-            <View style={styles.dividerRow}>
+            {/* Social Login — เปิดใช้หลังตั้ง Google/Apple OAuth ใน Supabase */}
+            {/* <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
               <Text style={styles.dividerText}>หรือเข้าสู่ระบบด้วย</Text>
               <View style={styles.dividerLine} />
             </View>
-
-            {/* Social */}
             <View style={styles.socialRow}>
-              <TouchableOpacity
-                style={styles.socialBtn}
-                onPress={handleGoogleLogin}
-                accessibilityLabel="เข้าสู่ระบบด้วย Google"
-                accessibilityRole="button"
-              >
+              <TouchableOpacity style={styles.socialBtn} onPress={handleGoogleLogin}>
                 <Text style={styles.socialBtnText}>G  Google</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.socialBtn}
-                accessibilityLabel="เข้าสู่ระบบด้วย Apple"
-                accessibilityRole="button"
-              >
+              <TouchableOpacity style={styles.socialBtn} onPress={handleAppleLogin}>
                 <Text style={styles.socialBtnText}>  Apple</Text>
               </TouchableOpacity>
-            </View>
+            </View> */}
 
             {/* Register */}
             <View style={styles.registerRow}>

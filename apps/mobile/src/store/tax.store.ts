@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { supabase } from '../services/supabase'
+import { api } from '../services/api.client'
 import {
   TaxDeduction,
   TaxResult,
@@ -13,7 +13,6 @@ interface TaxStore {
   result: TaxResult | null
   loading: boolean
 
-  // 1. เพิ่มตัวแปรที่หน้าจอ Dashboard ต้องการ
   deductionUsed: number
   deductionLimit: number
 
@@ -22,10 +21,7 @@ interface TaxStore {
   updateDeduction: (id: string, amount: number) => void
   removeDeduction: (id: string) => void
   compute: () => void
-  fetchFromSupabase: () => Promise<void>
-  
-  // 2. เพิ่มฟังก์ชันที่หน้าจอต้องการ
-  fetchTaxSummary: () => Promise<void> 
+  fetchTaxSummary: () => Promise<void>
 }
 
 export const useTaxStore = create<TaxStore>((set, get) => ({
@@ -34,9 +30,8 @@ export const useTaxStore = create<TaxStore>((set, get) => ({
   result: null,
   loading: false,
 
-  // 3. กำหนดค่าเริ่มต้นให้เพดานภาษี (เช่น 130,000 บาท ตามดีไซน์)
   deductionUsed: 0,
-  deductionLimit: 130000, 
+  deductionLimit: 130000,
 
   setGrossIncome: (income) => {
     set({ grossIncome: income })
@@ -63,31 +58,21 @@ export const useTaxStore = create<TaxStore>((set, get) => ({
   compute: () => {
     const { grossIncome, deductions } = get()
     const result = calculateThai(grossIncome, deductions)
-    
-    // 4. ให้มันบวกเลขยอดลดหย่อนทั้งหมดมารวมกัน เพื่อส่งไปให้หน้าจอแสดงผลในหลอด Progress Bar
     const used = deductions.reduce((sum, item) => sum + item.amount, 0)
-    
     set({ result, deductionUsed: used })
   },
 
-  fetchFromSupabase: async () => {
+  fetchTaxSummary: async () => {
     set({ loading: true })
     try {
-      const { data, error } = await supabase
-        .from('tax_deductions')
-        .select('id, label, category, amount')
-      if (error) throw error
-      if (data && data.length > 0) {
-        set({ deductions: data as TaxDeduction[] })
+      const { grossIncome, deductions } = get()
+      const data = await api.post('/tax/calculate', { grossIncome, deductions })
+      if (data?.deductions && data.deductions.length > 0) {
+        set({ deductions: data.deductions as TaxDeduction[] })
       }
       get().compute()
     } finally {
       set({ loading: false })
     }
   },
-
-  // 5. ทำทางลัดให้ฟังก์ชันที่หน้าจอเรียกใช้งาน วิ่งมาใช้ fetchFromSupabase แทน
-  fetchTaxSummary: async () => {
-    await get().fetchFromSupabase()
-  }
 }))

@@ -10,6 +10,7 @@ import { router } from 'expo-router'
 import { z } from 'zod'
 import { Colors, Spacing, Radius } from '../../src/constants'
 import { supabase } from '../../src/services/supabase'
+import { authService } from '../../src/services/auth.service'
 
 // ── Schema ────────────────────────────────────────
 
@@ -59,7 +60,7 @@ interface InputFieldProps {
   onFocus: () => void
   onBlur: () => void
   error?: string
-  inputRef?: React.RefObject<RNTextInput>
+  inputRef?: React.RefObject<RNTextInput | null> // รองรับค่า null จาก useRef<RNTextInput>(null)
   returnKeyType?: 'next' | 'done'
   onSubmitEditing?: () => void
   keyboardType?: 'email-address' | 'default'
@@ -137,6 +138,7 @@ export default function RegisterScreen() {
   const [globalError, setGlobalError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [socialLoading, setSocialLoading] = useState(false)
 
   // Refs สำหรับ focus ต่อเนื่อง
   const emailRef = useRef<RNTextInput>(null)
@@ -159,10 +161,12 @@ export default function RegisterScreen() {
       setFieldErrors({})
       return true
     }
+    // เปลี่ยนจาก .errors (ไม่มีใน ZodError type) → .flatten().fieldErrors
+    const flat = result.error.flatten().fieldErrors
     const errors: FieldErrors = {}
-    result.error.errors.forEach((e) => {
-      const field = e.path[0] as keyof RegisterInput
-      if (!errors[field]) errors[field] = e.message
+    ;(Object.keys(flat) as Array<keyof RegisterInput>).forEach((field) => {
+      const msgs = flat[field]
+      if (msgs?.[0]) errors[field] = msgs[0]
     })
     setFieldErrors(errors)
     return false
@@ -192,6 +196,30 @@ export default function RegisterScreen() {
       }
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleGoogleSignUp = async () => {
+    setSocialLoading(true)
+    setGlobalError(null)
+    try {
+      await authService.loginWithGoogle()
+    } catch {
+      setGlobalError('สมัครด้วย Google ไม่สำเร็จ')
+    } finally {
+      setSocialLoading(false)
+    }
+  }
+
+  const handleAppleSignUp = async () => {
+    setSocialLoading(true)
+    setGlobalError(null)
+    try {
+      await authService.loginWithApple()
+    } catch {
+      setGlobalError('สมัครด้วย Apple ไม่สำเร็จ')
+    } finally {
+      setSocialLoading(false)
     }
   }
 
@@ -344,6 +372,21 @@ export default function RegisterScreen() {
                 : <Text style={styles.btnPrimaryText}>สร้างบัญชี</Text>
               }
             </TouchableOpacity>
+
+            {/* Social Login — เปิดใช้หลังตั้ง Google/Apple OAuth ใน Supabase */}
+            {/* <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>หรือสมัครด้วย</Text>
+              <View style={styles.dividerLine} />
+            </View>
+            <View style={styles.socialRow}>
+              <TouchableOpacity style={[styles.socialBtn, socialLoading && styles.btnDisabled]} onPress={handleGoogleSignUp} disabled={socialLoading || loading}>
+                <Text style={styles.socialBtnText}>G  Google</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.socialBtn, socialLoading && styles.btnDisabled]} onPress={handleAppleSignUp} disabled={socialLoading || loading}>
+                <Text style={styles.socialBtnText}>  Apple</Text>
+              </TouchableOpacity>
+            </View> */}
 
             {/* Login Link */}
             <View style={styles.loginRow}>
@@ -516,6 +559,45 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: Colors.emerald[500],
+  },
+
+  // Divider
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 4,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  dividerText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.45)',
+  },
+
+  // Social
+  socialRow: {
+    flexDirection: 'row',
+    gap: 8,
+    height: 42,
+  },
+  socialBtn: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    borderRadius: Radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  socialBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.text.secondary,
   },
 
   // Success State

@@ -10,6 +10,8 @@ import { useAuthStore } from '../../src/store/auth.store'
 import { useTransactionStore } from '../../src/store/transaction.store'
 import { useTaxStore } from '../../src/store/tax.store'
 import { useWalletStore } from '../../src/store/wallet.store'
+import { MonthlyPie } from '../../src/components/wallet/MonthlyPie'
+import { MonthSelector } from '../../src/components/wallet/MonthSelector'
 
 // ── Types ────────────────────────────────────────
 
@@ -85,13 +87,9 @@ function TaxAlert({ daysLeft }: { daysLeft: number }) {
 
 function SummaryCard({
   totalBalance,
-  monthlyIncome,
-  monthlyExpense,
   lastUpdated,
 }: {
   totalBalance: number
-  monthlyIncome: number
-  monthlyExpense: number
   lastUpdated: string
 }) {
   return (
@@ -101,20 +99,31 @@ function SummaryCard({
         ฿{totalBalance.toLocaleString('th-TH')}
       </Text>
       <Text style={styles.summarySub}>อัปเดต {lastUpdated}</Text>
+    </View>
+  )
+}
 
-      <View style={styles.summaryRow}>
-        <View style={styles.summaryBox}>
-          <Text style={styles.summaryBoxLabel}>รายรับเดือนนี้</Text>
-          <Text style={[styles.summaryBoxVal, { color: Colors.emerald[500] }]}>
-            +฿{monthlyIncome.toLocaleString('th-TH')}
-          </Text>
-        </View>
-        <View style={styles.summaryBox}>
-          <Text style={styles.summaryBoxLabel}>รายจ่ายเดือนนี้</Text>
-          <Text style={[styles.summaryBoxVal, { color: Colors.error[500] }]}>
-            -฿{monthlyExpense.toLocaleString('th-TH')}
-          </Text>
-        </View>
+function MonthlyOverview({
+  income, expense, year, month, onChangeMonth,
+}: {
+  income: number
+  expense: number
+  year: number
+  month: number
+  onChangeMonth: (year: number, month: number) => void
+}) {
+  return (
+    <View style={styles.overviewCard}>
+      <View style={styles.overviewHead}>
+        <Text style={styles.overviewTitle}>ภาพรวมรายเดือน</Text>
+      </View>
+      <MonthSelector
+        selectedYear={year}
+        selectedMonth={month}
+        onChange={onChangeMonth}
+      />
+      <View style={styles.overviewBody}>
+        <MonthlyPie income={income} expense={expense} />
       </View>
     </View>
   )
@@ -300,24 +309,39 @@ function BottomNav({ activeTab }: { activeTab: string }) {
 // ── Main Screen ────────────────────────────────────
 
 export default function DashboardScreen() {
-  const { user } = useAuthStore()
-  const { recentTransactions, monthlyIncome, monthlyExpense, fetchRecent } = useTransactionStore()
-  const { totalBalance, fetchWallets } = useWalletStore()
-  const { deductionUsed, deductionLimit, fetchTaxSummary } = useTaxStore()
+  const user               = useAuthStore(s => s.user)
+  const recentTransactions = useTransactionStore(s => s.recentTransactions)
+  const monthlyIncome      = useTransactionStore(s => s.monthlyIncome)
+  const monthlyExpense     = useTransactionStore(s => s.monthlyExpense)
+  const selectedYear       = useTransactionStore(s => s.selectedYear)
+  const selectedMonth      = useTransactionStore(s => s.selectedMonth)
+  const setSelectedMonth   = useTransactionStore(s => s.setSelectedMonth)
+  const fetchRecent        = useTransactionStore(s => s.fetchRecent)
+  const fetchMonthlySummary = useTransactionStore(s => s.fetchMonthlySummary)
+  const totalBalance       = useWalletStore(s => s.totalBalance)
+  const fetchWallets       = useWalletStore(s => s.fetchWallets)
+  const deductionUsed      = useTaxStore(s => s.deductionUsed)
+  const deductionLimit     = useTaxStore(s => s.deductionLimit)
+  const fetchTaxSummary    = useTaxStore(s => s.fetchTaxSummary)
 
   const daysLeft = getDaysUntilTaxDeadline()
 
-  // ดึงข้อมูลทั้งหมดตอนหน้าโหลด
   useEffect(() => {
-    fetchRecent()
+    if (!user?.id) return
     fetchWallets()
+    fetchRecent()
+    fetchMonthlySummary()
     fetchTaxSummary()
-  }, [])
+  }, [user?.id])
 
   // สร้าง Display Name และ Initials จาก user จริง
-  const displayName = user?.user_metadata?.full_name
-    ?? user?.email?.split('@')[0]
-    ?? 'คุณ'
+  const meta = (user?.user_metadata ?? {}) as Record<string, string | undefined>
+  const fullName = [meta.first_name, meta.last_name].filter(Boolean).join(' ')
+  const displayName = fullName
+    || meta.username
+    || meta.full_name
+    || user?.email?.split('@')[0]
+    || 'คุณ'
 
   const initials = displayName
     .split(' ')
@@ -343,15 +367,31 @@ export default function DashboardScreen() {
         <TaxAlert daysLeft={daysLeft} />
         <SummaryCard
           totalBalance={totalBalance}
-          monthlyIncome={monthlyIncome}
-          monthlyExpense={monthlyExpense}
           lastUpdated={lastUpdated}
+        />
+        <MonthlyOverview
+          income={monthlyIncome}
+          expense={monthlyExpense}
+          year={selectedYear}
+          month={selectedMonth}
+          onChangeMonth={setSelectedMonth}
         />
         <TaxProgress
           used={deductionUsed}
           limit={deductionLimit}
         />
-        <RecentTransactions transactions={recentTransactions} />
+        <RecentTransactions transactions={recentTransactions.map(tx => ({
+  id: tx.id,
+  title: tx.category || tx.note || 'ไม่มีชื่อ',
+  subtitle: tx.note || 'ทั่วไป',         // ✅ เปลี่ยนจาก note เป็น subtitle
+  amount: Number(tx.amount) || 0,
+  type: tx.type,
+  icon: 'wallet',                      // ✅ เติม icon เข้าไปตามที่ UI บังคับ
+  time: new Date(tx.date || tx.created_at).toLocaleTimeString('th-TH', { 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  }),                                  // ✅ เปลี่ยนจาก date เป็น time
+}))} />
         <View style={{ height: 100 }} />
       </ScrollView>
       <BottomNav activeTab="/(app)" />
@@ -474,6 +514,31 @@ const styles = StyleSheet.create({
     ...TextStyles.bodyLg,
     fontSize: 15,
     fontWeight: '800',
+  },
+
+  overviewCard: {
+    marginHorizontal: Spacing[4],
+    marginBottom: Spacing[3],
+    paddingVertical: 16,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: Colors.border.default,
+    gap: 12,
+  },
+  overviewHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+  },
+  overviewTitle: {
+    ...TextStyles.h3,
+    fontSize: 13,
+  },
+  overviewBody: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
   },
 
   section: {

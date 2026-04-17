@@ -9,6 +9,10 @@
     "start": "NODE_ENV=production bun src/index.ts"
   },
   "dependencies": {
+    "@react-native-ml-kit/text-recognition": "^2.0.0",
+    "expo-camera": "^55.0.15",
+    "expo-dev-client": "^55.0.27",
+    "expo-image-picker": "^55.0.18",
     "react": "^19",
     "react-dom": "^19"
   },

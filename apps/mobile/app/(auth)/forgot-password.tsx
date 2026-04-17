@@ -35,7 +35,8 @@ export default function ForgotPasswordScreen() {
       setEmailError(null)
       return true
     }
-    setEmailError(result.error.errors[0].message)
+    // เปลี่ยนจาก .errors[0].message → .flatten().fieldErrors เพื่อให้ Type ถูกต้อง
+    setEmailError(result.error.flatten().fieldErrors.email?.[0] ?? 'ข้อมูลไม่ถูกต้อง')
     return false
   }
 
