@@ -24,7 +24,8 @@ const app = new Elysia()
   }))
   .use(swagger({ path: '/docs' }))
 
-  // Health check (ไม่ต้อง auth)
+  // Root / Health check (ไม่ต้อง auth)
+  .get('/', () => 'SabaiTax API is running!')
   .get('/health', () => ({ status: 'ok', timestamp: new Date() }))
   .get('/favicon.ico', ({ set }) => {
     set.status = 204
@@ -47,7 +48,7 @@ const app = new Elysia()
   })
   .onBeforeHandle(({ userId, set, path }) => {
     // Skip auth for public routes
-    if (path === '/health' || path === '/favicon.ico' || path.startsWith('/docs') || path.startsWith('/auth/')) return
+    if (path === '/' || path === '/health' || path === '/favicon.ico' || path.startsWith('/docs') || path.startsWith('/auth/')) return
     if (!userId) {
       set.status = 401
       return { message: 'Unauthorized' }
