@@ -19,7 +19,7 @@
     "android": {
       "usesCleartextTraffic": true,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/adaptive-icon1.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -35,15 +35,19 @@
     },
     "plugins": [
       "expo-router",
-      "expo-dev-client",
       [
         "expo-camera",
         {
           "cameraPermission": "Allow SabaiTax to access your camera"
         }
       ],
-      "expo-secure-store",
-      "expo-web-browser"
-    ]
+      "expo-secure-store"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5d3845ee-9c0e-4220-88f5-f7ef84247bcf"
+      }
+    }
   }
 }
