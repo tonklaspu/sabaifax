@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(bun add *)"
+      "Bash(bun add *)",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/expo-constants/package.json'\\).version\\)\")",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/react-native-screens/package.json'\\).version\\)\")"
     ]
   }
 }
