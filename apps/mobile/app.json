@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "sabaifax",
     "slug": "mobile",
     "scheme": "sabaifax",
     "version": "1.0.0",
@@ -18,7 +18,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/adaptive-icon1.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
