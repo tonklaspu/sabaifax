@@ -13,6 +13,12 @@ import {
   configureNotifications,
   registerPushTokenWithServer,
 } from '../../../src/services/notification.service'
+import {
+  startBackgroundSlipScan,
+  stopBackgroundSlipScan,
+  startForegroundSlipListener,
+  stopForegroundSlipListener,
+} from '../../../src/services/background-slip.service'
 
 // ── Config ─────────────────────────────────────────────
 
@@ -123,6 +129,31 @@ export default function NotificationsScreen() {
     const updated = { ...settings, [key]: value }
     setSettings(updated)
     await saveNotifSettings(updated)
+
+    if (key === 'slip_scan') {
+      try {
+        if (value) {
+          const ok = await startBackgroundSlipScan()
+          if (!ok) {
+            Alert.alert(
+              'ต้องการสิทธิ์คลังภาพ',
+              'กรุณาอนุญาตให้แอปเข้าถึงคลังรูปภาพในการตั้งค่าอุปกรณ์',
+            )
+            // rollback เฉพาะ key นี้ ถ้า start ไม่สำเร็จ
+            const rolled = { ...updated, slip_scan: false }
+            setSettings(rolled)
+            await saveNotifSettings(rolled)
+            return
+          }
+          startForegroundSlipListener()
+        } else {
+          await stopBackgroundSlipScan()
+          stopForegroundSlipListener()
+        }
+      } catch (err) {
+        console.warn('[slip_scan] toggle failed:', err)
+      }
+    }
   }
 
   const anyOn = Object.values(settings).some(Boolean)
@@ -138,6 +169,23 @@ export default function NotificationsScreen() {
     }
     setSettings(updated)
     await saveNotifSettings(updated)
+
+    try {
+      if (newVal) {
+        const ok = await startBackgroundSlipScan()
+        if (ok) startForegroundSlipListener()
+        else {
+          const rolled = { ...updated, slip_scan: false }
+          setSettings(rolled)
+          await saveNotifSettings(rolled)
+        }
+      } else {
+        await stopBackgroundSlipScan()
+        stopForegroundSlipListener()
+      }
+    } catch (err) {
+      console.warn('[slip_scan] toggleAll failed:', err)
+    }
   }
 
   return (

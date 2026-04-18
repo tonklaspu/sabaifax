@@ -2,6 +2,7 @@ import { Elysia, t } from 'elysia'
 import { db } from '../db/client'
 import { transactions } from '../db/schema'
 import { eq, and, desc, gte, lte } from 'drizzle-orm'
+import { generateReceiptHash } from '../utils/receipt-hash'
 
 export const transactionRoute = new Elysia({ prefix: '/transactions' })
 
@@ -37,15 +38,72 @@ export const transactionRoute = new Elysia({ prefix: '/transactions' })
     })
   })
 
-  // POST /transactions — สร้างรายการใหม่
-  .post('/', async ({ userId, body }) => {
+  // POST /transactions — สร้างรายการใหม่ (+ Duplicate Protection)
+  .post('/', async ({ userId, body, set }) => {
+    const amt    = Number(body.amount)
+    const txDate = body.date ? new Date(body.date) : new Date()
+    const { bank, force, slipRef, ...rest } = body
+
+    // ── Layer 2: Slip Reference Number (Hard Reject) ──
+    if (slipRef) {
+      const existing = await db
+        .select({ id: transactions.id, date: transactions.date, amount: transactions.amount })
+        .from(transactions)
+        .where(and(
+          eq(transactions.userId, userId),
+          eq(transactions.slipRef, slipRef),
+        ))
+        .limit(1)
+
+      if (existing.length > 0) {
+        set.status = 409
+        return {
+          error: 'DUPLICATE_SLIP_REF',
+          message: 'สลิปนี้เคยถูกบันทึกแล้ว (Ref ซ้ำ)',
+          duplicate: existing[0],
+        }
+      }
+    }
+
+    // ── Layer 3: Content Hash (Soft Warning ±24h) ──
+    const hash = generateReceiptHash({ amount: amt, date: txDate, bank })
+
+    if (!force && hash) {
+      const windowStart = new Date(txDate.getTime() - 24 * 3600 * 1000)
+      const windowEnd   = new Date(txDate.getTime() + 24 * 3600 * 1000)
+
+      const similar = await db
+        .select({ id: transactions.id, date: transactions.date, amount: transactions.amount, note: transactions.note })
+        .from(transactions)
+        .where(and(
+          eq(transactions.userId, userId),
+          eq(transactions.receiptHash, hash),
+          gte(transactions.date, windowStart),
+          lte(transactions.date, windowEnd),
+        ))
+        .limit(1)
+
+      if (similar.length > 0) {
+        set.status = 409
+        return {
+          error: 'POSSIBLE_DUPLICATE',
+          message: 'พบรายการที่คล้ายกันในช่วง 24 ชม. — ยืนยันบันทึกซ้ำได้โดยส่ง force=true',
+          duplicate: similar[0],
+          canForce: true,
+        }
+      }
+    }
+
+    // ── Insert ──
     const [tx] = await db
       .insert(transactions)
       .values({
-        ...body,
-        amount: String(body.amount),
-        date: body.date ? new Date(body.date) : new Date(),
+        ...rest,
+        amount: String(amt),
+        date:   txDate,
         userId,
+        slipRef:     slipRef ?? null,
+        receiptHash: hash,
       })
       .returning()
 
@@ -61,6 +119,10 @@ export const transactionRoute = new Elysia({ prefix: '/transactions' })
       date:            t.Optional(t.String()),
       isTaxDeductible: t.Optional(t.Boolean()),
       receiptUrl:      t.Optional(t.String()),
+      // ── Duplicate Protection (Epic 1) ──
+      slipRef:         t.Optional(t.String()),   // Layer 2 — เลขอ้างอิงสลิป
+      bank:            t.Optional(t.String()),   // ใช้คำนวณ hash เท่านั้น (ไม่เก็บ column)
+      force:           t.Optional(t.Boolean()),  // ข้าม Layer 3 soft warning
     })
   })
 

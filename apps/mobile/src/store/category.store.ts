@@ -3,32 +3,33 @@ import { api } from '../services/api.client'
 import { TransactionType } from './transaction.store'
 
 export interface Category {
-  id: string
+  id:   string
   label: string
-  icon: string
-  type: TransactionType
+  icon:  string
+  type:  TransactionType
+  slug?: string | null    // Epic 2 — ใช้จับคู่ auto-categorization
 }
 
 // Default categories — ใช้เป็น fallback และค่าเริ่มต้น
 const DEFAULT_CATEGORIES: Category[] = [
   // รายจ่าย
-  { id: 'exp_food',       label: 'อาหาร',      icon: '🍜', type: 'expense' },
-  { id: 'exp_travel',     label: 'เดินทาง',    icon: '🚗', type: 'expense' },
-  { id: 'exp_shopping',   label: 'ช้อปปิ้ง',   icon: '🛍️', type: 'expense' },
-  { id: 'exp_health',     label: 'สุขภาพ',     icon: '💊', type: 'expense' },
-  { id: 'exp_entertain',  label: 'บันเทิง',    icon: '🎮', type: 'expense' },
-  { id: 'exp_housing',    label: 'ที่พัก',     icon: '🏠', type: 'expense' },
-  { id: 'exp_utility',    label: 'ค่าน้ำ/ไฟ', icon: '💡', type: 'expense' },
-  { id: 'exp_other',      label: 'อื่น ๆ',    icon: '📦', type: 'expense' },
+  { id: 'exp_food',       label: 'อาหาร',      icon: '🍜', type: 'expense', slug: 'food' },
+  { id: 'exp_travel',     label: 'เดินทาง',    icon: '🚗', type: 'expense', slug: 'transport' },
+  { id: 'exp_shopping',   label: 'ช้อปปิ้ง',   icon: '🛍️', type: 'expense', slug: 'shopping' },
+  { id: 'exp_health',     label: 'สุขภาพ',     icon: '💊', type: 'expense', slug: 'health' },
+  { id: 'exp_entertain',  label: 'บันเทิง',    icon: '🎮', type: 'expense', slug: 'entertainment' },
+  { id: 'exp_housing',    label: 'ที่พัก',     icon: '🏠', type: 'expense', slug: 'housing' },
+  { id: 'exp_utility',    label: 'ค่าน้ำ/ไฟ', icon: '💡', type: 'expense', slug: 'utility' },
+  { id: 'exp_other',      label: 'อื่น ๆ',    icon: '📦', type: 'expense', slug: 'other' },
   // รายรับ
-  { id: 'inc_salary',     label: 'เงินเดือน',  icon: '💼', type: 'income' },
-  { id: 'inc_freelance',  label: 'ฟรีแลนซ์',  icon: '💻', type: 'income' },
-  { id: 'inc_invest',     label: 'ลงทุน',      icon: '📈', type: 'income' },
-  { id: 'inc_bonus',      label: 'โบนัส',      icon: '🎁', type: 'income' },
-  { id: 'inc_other',      label: 'อื่น ๆ',    icon: '💰', type: 'income' },
+  { id: 'inc_salary',     label: 'เงินเดือน',  icon: '💼', type: 'income', slug: 'salary' },
+  { id: 'inc_freelance',  label: 'ฟรีแลนซ์',  icon: '💻', type: 'income', slug: 'freelance' },
+  { id: 'inc_invest',     label: 'ลงทุน',      icon: '📈', type: 'income', slug: 'invest' },
+  { id: 'inc_bonus',      label: 'โบนัส',      icon: '🎁', type: 'income', slug: 'bonus' },
+  { id: 'inc_other',      label: 'อื่น ๆ',    icon: '💰', type: 'income', slug: 'other' },
   // โอน
-  { id: 'tra_transfer',   label: 'โอนเงิน',   icon: '🔄', type: 'transfer' },
-  { id: 'tra_debt',       label: 'ชำระหนี้',  icon: '📋', type: 'transfer' },
+  { id: 'tra_transfer',   label: 'โอนเงิน',   icon: '🔄', type: 'transfer', slug: 'transfer' },
+  { id: 'tra_debt',       label: 'ชำระหนี้',  icon: '📋', type: 'transfer', slug: 'debt' },
 ]
 
 const ICON_OPTIONS = [
@@ -64,6 +65,7 @@ export const useCategoryStore = create<CategoryStore>((set, get) => ({
           label: r.label ?? r.name ?? '',
           icon:  r.icon ?? '📦',
           type:  r.type,
+          slug:  r.slug ?? null,
         }))
         // รวมกับ DEFAULT เผื่อ API ยังไม่มี default บางชนิด
         const existing = new Set(mapped.map(m => `${m.type}:${m.label}`))

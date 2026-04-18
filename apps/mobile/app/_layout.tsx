@@ -8,8 +8,13 @@ import { useWalletStore } from '../src/store/wallet.store'
 import { useCategoryStore } from '../src/store/category.store'
 import { useBudgetStore } from '../src/store/budget.store'
 import { Colors } from '../src/constants'
-import { configureNotifications, registerPushTokenWithServer } from '../src/services/notification.service'
-import { registerBackgroundSlipTask } from '../src/services/background-slip.service'
+import { configureNotifications, registerPushTokenWithServer, loadNotifSettings } from '../src/services/notification.service'
+import {
+  registerBackgroundSlipTask,
+  startForegroundSlipListener,
+  stopForegroundSlipListener,
+} from '../src/services/background-slip.service'
+import { startSyncWorker, stopSyncWorker } from '../src/services/sync-worker.service'
 
 registerBackgroundSlipTask()
 
@@ -44,6 +49,8 @@ export default function RootLayout() {
 
     if (!session && !inAuth) {
       didFetch.current = false
+      stopForegroundSlipListener()
+      stopSyncWorker()
       router.replace('/(auth)/login')
     } else if (session && !inApp) {
       router.replace('/(app)')
@@ -53,6 +60,10 @@ export default function RootLayout() {
       fetchCategories()
       fetchBudget()
       registerPushTokenWithServer()
+      loadNotifSettings()
+        .then(s => { if (s.slip_scan) startForegroundSlipListener() })
+        .catch(err => console.warn('[slip_scan] load settings failed:', err))
+      startSyncWorker().catch(err => console.warn('[sync] startSyncWorker failed:', err))
     }
   // ใช้ session?.user?.id (user เปลี่ยนเฉพาะตอน login/logout) แทน access_token
   // ที่ refresh ทุกชั่วโมง → ป้องกัน refetch ซ้ำซ้อน

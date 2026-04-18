@@ -25,6 +25,8 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ],
       "package": "com.kis_tonkla.mobile"
@@ -47,6 +49,12 @@
       "eas": {
         "projectId": "5d3845ee-9c0e-4220-88f5-f7ef84247bcf"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/5d3845ee-9c0e-4220-88f5-f7ef84247bcf"
     }
   }
 }

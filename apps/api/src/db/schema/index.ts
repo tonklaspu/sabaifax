@@ -1,7 +1,8 @@
 import {
   pgTable, uuid, text, numeric, boolean,
-  timestamp, pgEnum, integer,
+  timestamp, pgEnum, integer, uniqueIndex, index,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 
 // ── Enums ──────────────────────────────────────────
 
@@ -52,6 +53,9 @@ export const categories = pgTable('categories', {
   icon:      text('icon').default('📦'),
   type:      transactionTypeEnum('type').notNull(),
   isDefault: boolean('is_default').default(false),
+  // ── Auto-Categorization (Epic 2) ──
+  slug:      text('slug'),                      // e.g. 'food', 'transport' — ใช้จับคู่ keyword → category
+  keywords:  text('keywords').array(),          // array ของ keyword (ภาษาไทย/อังกฤษ) สำหรับ auto-classify
   createdAt: timestamp('created_at').defaultNow(),
 })
 
@@ -68,9 +72,25 @@ export const transactions = pgTable('transactions', {
   date:        timestamp('date').defaultNow(),
   isTaxDeductible: boolean('is_tax_deductible').default(false),
   receiptUrl:  text('receipt_url'),             // รูปใบเสร็จจาก OCR
+  // ── Duplicate Protection (Epic 1) ──
+  slipRef:     text('slip_ref'),                // เลขอ้างอิงสลิป (Ref No.) จาก OCR — hard unique
+  receiptHash: text('receipt_hash'),            // SHA-256(amount|date|bank) — soft warning ±24h
   createdAt:   timestamp('created_at').defaultNow(),
   updatedAt:   timestamp('updated_at').defaultNow(),
-})
+}, (t) => ({
+  // Partial unique: (user_id, slip_ref) เมื่อ slip_ref ไม่ NULL — กันสลิปเดียวกันซ้ำ
+  slipRefUserUq: uniqueIndex('transactions_slip_ref_user_uq')
+    .on(t.userId, t.slipRef)
+    .where(sql`${t.slipRef} IS NOT NULL`),
+  // Index สำหรับ lookup hash + date range
+  receiptHashIdx: index('transactions_receipt_hash_idx')
+    .on(t.userId, t.receiptHash, t.date),
+  // Epic 3: Partial index สำหรับ tax-deductible aggregation (เฉพาะแถวที่เป็น true)
+  // ใช้ partial เพื่อให้ index เล็ก ประสิทธิภาพสูง
+  taxDeductibleIdx: index('transactions_tax_deductible_idx')
+    .on(t.userId, t.date)
+    .where(sql`${t.isTaxDeductible} = true`),
+}))
 
 // Push Tokens
 export const pushTokens = pgTable('push_tokens', {

@@ -1,5 +1,6 @@
 import { AppState, AppStateStatus } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
+import { filterUnprocessed } from './processed-assets.service'
 
 // Lazy imports — native modules require rebuild
 let TaskManager: typeof import('expo-task-manager') | null = null
@@ -92,7 +93,12 @@ export async function isBackgroundSlipEnabled(): Promise<boolean> {
 
 // ── Check For New Slips ────────────────────────────
 
-export async function checkForNewSlips(): Promise<string[]> {
+export interface SlipCandidate {
+  id:  string
+  uri: string
+}
+
+export async function checkForNewSlips(): Promise<SlipCandidate[]> {
   if (!MediaLibrary) return []
 
   // Get last check time
@@ -119,7 +125,9 @@ export async function checkForNewSlips(): Promise<string[]> {
       return false
     })
 
-    return slipAssets.map(a => a.uri)
+    // ── Layer 1: กรองออกเฉพาะ asset ที่ยังไม่เคยสแกน ──
+    const fresh = await filterUnprocessed(slipAssets.map(a => ({ id: a.id, uri: a.uri })))
+    return fresh
   } catch {
     return []
   }

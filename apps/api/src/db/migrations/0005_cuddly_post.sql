@@ -1,0 +1,1 @@
+CREATE INDEX "transactions_tax_deductible_idx" ON "transactions" USING btree ("user_id","date") WHERE "transactions"."is_tax_deductible" = true;

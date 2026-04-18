@@ -1,0 +1,19 @@
+# ไฟล์โฟลเดอร์ที่ไม่จำเป็นต้องอัปโหลดขึ้นไป Build
+node_modules/
+.expo/
+dist/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# ถ้าคุณใช้ Managed Workflow (ไม่มีการแก้โค้ด Native สดๆ) ให้ Ignore สองโฟลเดอร์นี้ด้วย
+# ios/
+# android/
+
+# ไฟล์เอกสารและไฟล์เก็บเวอร์ชัน
+.git/
+README.md

@@ -169,6 +169,12 @@ export default function SettingsScreen() {
         <SectionHeader title="อื่นๆ" />
         <SectionCard>
           <SettingRow
+            icon="📡"
+            label="Offline Queue"
+            sub="ดูรายการที่ยังไม่ถูก sync"
+            onPress={() => router.push('/(app)/settings/queue')}
+          />
+          <SettingRow
             icon="ℹ️"
             label="เกี่ยวกับแอป · v1.0.0"
             chevron={false}

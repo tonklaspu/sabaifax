@@ -117,12 +117,20 @@ export default function TaxScreen() {
             <Text style={styles.title}>จำลองภาษี</Text>
             <Text style={styles.titleSub}>ภาษีเงินได้บุคคลธรรมดา ปี 2568</Text>
           </View>
-          <TouchableOpacity
-            style={styles.profileBtn}
-            onPress={() => router.push('/(app)/settings/tax-profile')}
-          >
-            <Text style={styles.profileBtnText}>โปรไฟล์ภาษี ›</Text>
-          </TouchableOpacity>
+          <View style={{ gap: 6 }}>
+            <TouchableOpacity
+              style={styles.profileBtn}
+              onPress={() => router.push('/(app)/tax/insights')}
+            >
+              <Text style={styles.profileBtnText}>📊 Insight ลดหย่อน ›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.profileBtn}
+              onPress={() => router.push('/(app)/settings/tax-profile')}
+            >
+              <Text style={styles.profileBtnText}>โปรไฟล์ภาษี ›</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Income Input */}

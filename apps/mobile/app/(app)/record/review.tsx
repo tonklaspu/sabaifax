@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, Image,
   StatusBar, Alert, ActivityIndicator,
@@ -11,6 +11,10 @@ import { useTransactionStore, TransactionType } from '../../../src/store/transac
 import { useScanStore } from '../../../src/store/scan.store'
 import { useCategoryStore } from '../../../src/store/category.store'
 import { Header, Button } from '../../../src/components'
+import { api } from '../../../src/services/api.client'
+import { suggestCategorySlug, resolveCategoryBySlug } from '../../../src/utils/category-mapper'
+import { markAssetProcessed } from '../../../src/services/processed-assets.service'
+import { enqueue as enqueueOffline } from '../../../src/services/offline-queue.service'
 
 const TYPES: { type: TransactionType; label: string; color: string; dimBg: string; borderCls: string }[] = [
   { type: 'expense',  label: 'รายจ่าย', color: 'text-error-500',   dimBg: 'bg-error-500/[0.13]',   borderCls: 'border-error-500' },
@@ -20,18 +24,31 @@ const TYPES: { type: TransactionType; label: string; color: string; dimBg: strin
 
 export default function ReviewScreen() {
   const { wallets } = useWalletStore()
-  const { createTransaction } = useTransactionStore()
-  const { pendingImageUri, ocrResult, clear } = useScanStore()
-  const { getByType } = useCategoryStore()
+  const { fetchRecent } = useTransactionStore()
+  const { pendingImageUri, pendingAssetId, ocrResult, clear } = useScanStore()
+  const { getByType, categories: allCategories } = useCategoryStore()
 
   const defaultType: TransactionType = ocrResult?.isSlip ? 'transfer' : 'expense'
 
+  // ── Epic 2: Auto-categorization ──
+  const suggestedSlug = useMemo(
+    () => suggestCategorySlug(
+      [ocrResult?.merchantName, ocrResult?.rawText].filter(Boolean).join(' ')
+    ),
+    [ocrResult?.merchantName, ocrResult?.rawText],
+  )
+  const initialCategory = useMemo(() => {
+    const byType = getByType(defaultType)
+    const matched = resolveCategoryBySlug(suggestedSlug, byType)
+    return matched?.label ?? byType[0]?.label ?? ''
+  }, [defaultType, suggestedSlug, allCategories])
+
   const [type, setType] = useState<TransactionType>(defaultType)
   const [amount, setAmount] = useState(() => ocrResult?.amount ? String(ocrResult.amount) : '')
-  const [category, setCategory] = useState(() => getByType(defaultType)[0]?.label ?? '')
+  const [category, setCategory] = useState(initialCategory)
   const [note, setNote] = useState(() => {
     if (ocrResult?.merchantName) return ocrResult.merchantName
-    if (ocrResult?.bank && ocrResult.bank !== 'unknown') return `สลิป ${ocrResult.bank}`
+    if (ocrResult?.bank && ocrResult.bank !== 'UNKNOWN') return `สลิป ${ocrResult.bank}`
     return ''
   })
   const [walletId, setWalletId] = useState(wallets[0]?.id ?? '')
@@ -53,6 +70,87 @@ export default function ReviewScreen() {
   const activeType = TYPES.find(t => t.type === type)!
   const categories = getByType(type)
 
+  // ── Epic 2: resolve categoryId จาก label/slug ปัจจุบัน เพื่อส่งให้ DB ──
+  const resolvedCategoryId = useMemo(() => {
+    const match = getByType(type).find(c => c.label === category)
+    // Default categories (exp_/inc_/tra_) ไม่ใช่ UUID — ถ้ายังไม่ sync ลง DB ให้ส่ง null
+    if (!match || /^(exp|inc|tra)_/.test(match.id)) return null
+    return match.id
+  }, [category, type, allCategories])
+
+  const submitTransaction = async (force: boolean): Promise<void> => {
+    const num = parseFloat(amount.replace(/,/g, ''))
+
+    const body: any = {
+      walletId,
+      categoryId: resolvedCategoryId,
+      type,
+      amount: num,
+      note: note.trim(),
+      date: new Date().toISOString(),
+      // ── Epic 1 duplicate protection payload ──
+      slipRef: ocrResult?.slipRef ?? undefined,
+      bank:    ocrResult?.bank && ocrResult.bank !== 'UNKNOWN' ? ocrResult.bank : undefined,
+      force,
+    }
+
+    // ── Epic 4: postRaw, catch network error → enqueue offline ──
+    let res: Awaited<ReturnType<typeof api.postRaw>>
+    try {
+      res = await api.postRaw('/transactions', body)
+    } catch (netErr: any) {
+      await enqueueOffline(body, { assetId: pendingAssetId ?? undefined })
+      if (pendingAssetId) await markAssetProcessed(pendingAssetId).catch(() => {})
+      clear()
+      Alert.alert(
+        'บันทึกออฟไลน์',
+        'ไม่มีอินเทอร์เน็ต — บันทึกไว้ในคิวและจะส่งให้เซิร์ฟเวอร์อัตโนมัติเมื่อเชื่อมต่อ',
+      )
+      router.replace({
+        pathname: '/(app)/record/success',
+        params: { amount: String(num), type, offline: '1' },
+      })
+      return
+    }
+
+    // ── Layer 2: slipRef ซ้ำ (hard reject) ──
+    if (res.status === 409 && res.data?.error === 'DUPLICATE_SLIP_REF') {
+      Alert.alert(
+        'สลิปซ้ำ',
+        'สลิปนี้เคยถูกบันทึกแล้ว (เลขอ้างอิงซ้ำ) — ไม่สามารถบันทึกซ้ำได้',
+      )
+      return
+    }
+
+    // ── Layer 3: hash ซ้ำใน ±24ชม. (soft warning) ──
+    if (res.status === 409 && res.data?.error === 'POSSIBLE_DUPLICATE' && !force) {
+      Alert.alert(
+        'รายการอาจซ้ำ',
+        'พบรายการที่คล้ายกันในช่วง 24 ชม. — ต้องการบันทึกซ้ำหรือไม่?',
+        [
+          { text: 'ยกเลิก', style: 'cancel' },
+          { text: 'บันทึกต่อ', style: 'destructive', onPress: () => submitTransaction(true) },
+        ],
+      )
+      return
+    }
+
+    if (!res.ok) {
+      throw new Error(res.data?.message ?? `บันทึกไม่สำเร็จ (${res.status})`)
+    }
+
+    // ── Success ──
+    if (pendingAssetId) {
+      await markAssetProcessed(pendingAssetId).catch(() => {})
+    }
+    fetchRecent().catch(() => {})
+    clear()
+    router.replace({
+      pathname: '/(app)/record/success',
+      params: { amount: String(num), type },
+    })
+  }
+
   const handleSave = async () => {
     const num = parseFloat(amount.replace(/,/g, ''))
     if (!num || num <= 0) {
@@ -66,19 +164,7 @@ export default function ReviewScreen() {
 
     setSaving(true)
     try {
-      await createTransaction({
-        wallet_id: walletId,
-        type,
-        amount: num,
-        category,
-        note: note.trim(),
-        date: new Date().toISOString(),
-      })
-      clear()
-      router.replace({
-        pathname: '/(app)/record/success',
-        params: { amount: String(num), type },
-      })
+      await submitTransaction(false)
     } catch (err: any) {
       Alert.alert('เกิดข้อผิดพลาด', err?.message ?? 'บันทึกไม่สำเร็จ')
     } finally {

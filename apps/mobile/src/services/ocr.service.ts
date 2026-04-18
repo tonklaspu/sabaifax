@@ -9,6 +9,7 @@ export interface OcrResult {
   date: string | null
   isSlip: boolean
   bank: string
+  slipRef: string | null       // เลขอ้างอิงสลิป (สำหรับ duplicate detection)
 }
 
 // ── Helpers ────────────────────────────────────────────
@@ -50,5 +51,6 @@ export async function recognizeReceipt(imageUri: string): Promise<OcrResult> {
     date:         parsed.date,
     isSlip:       parsed.isSlip,
     bank:         parsed.bank,
+    slipRef:      parsed.slipRef,
   }
 }
