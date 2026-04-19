@@ -35,59 +35,59 @@ bunx drizzle-kit push      # Push schema to Supabase
 ### Routing (Expo Router — file-based)
 ```
 app/
-├── _layout.tsx              ← Root layout + Auth initialize
-├── index.tsx                ← Redirect → login
+├── _layout.tsx              Root layout + Auth initialize
+├── index.tsx                Redirect → login
 ├── (auth)/
-│   ├── _layout.tsx          ← Auth guard (ถ้า login อยู่แล้ว → redirect ไป app)
-│   ├── login.tsx            ✅ Done
-│   ├── register.tsx         ✅ Done
-│   └── forgot-password.tsx  ✅ Done
+│   ├── _layout.tsx          Auth guard (ถ้า login อยู่แล้ว → redirect ไป app)
+│   ├── login.tsx            
+│   ├── register.tsx         
+│   └── forgot-password.tsx  
 └── (app)/
-    ├── _layout.tsx          ← App guard (ถ้าไม่ login → redirect ไป login)
-    ├── index.tsx            ✅ Done — Dashboard
+    ├── _layout.tsx          App guard (ถ้าไม่ login → redirect ไป login)
+    ├── index.tsx            Dashboard
     ├── tax/
-    │   └── index.tsx        ✅ Done — Tax Simulator
-    ├── wallet/              ✅ Done — รายการกระเป๋า
+    │   └── index.tsx        Tax Simulator
+    ├── wallet/              รายการกระเป๋า
     │   ├── index.tsx        รายการกระเป๋าทั้งหมด + ยอดรวม
     │   ├── new.tsx          สร้างกระเป๋าใหม่
     │   └── [id].tsx         รายละเอียดกระเป๋า + รายการ
-    ├── record/              ✅ Done — บันทึกรายการ
+    ├── record/              บันทึกรายการ
     │   ├── index.tsx        เลือกวิธีบันทึก (Manual / Scanner)
     │   ├── manual.tsx       กรอกรายการ (รายจ่าย/รายรับ/โอน)
-    │   ├── scanner.tsx      ✅ Done — กล้อง + Gallery → ML Kit OCR → review (NativeWind)
-    │   ├── review.tsx       ✅ Done — แสดงรูป + pre-fill จาก OCR + ยืนยัน (NativeWind)
-    │   └── success.tsx      ✅ Done — หน้าบันทึกสำเร็จ
-    ├── history.tsx          ✅ Done — ประวัติรายการ + filter + เลือกเดือน
+    │   ├── scanner.tsx      กล้อง + Gallery → ML Kit OCR → review (NativeWind)
+    │   ├── review.tsx       แสดงรูป + pre-fill จาก OCR + ยืนยัน (NativeWind)
+    │   └── success.tsx      หน้าบันทึกสำเร็จ
+    ├── history.tsx          ประวัติรายการ + filter + เลือกเดือน
     ├── transaction/
-    │   └── [id].tsx         ✅ Done — รายละเอียด Transaction + ลบ
+    │   └── [id].tsx         รายละเอียด Transaction + ลบ
     └── settings/
-        ├── index.tsx        ✅ Done — หน้าหลักตั้งค่า
-        ├── tax-profile.tsx  ✅ Done — ข้อมูลลดหย่อนภาษี
-        ├── categories.tsx   ✅ Done — จัดการหมวดหมู่ (CRUD)
-        ├── notifications.tsx ✅ Done — ตั้งค่าการแจ้งเตือน (UI)
-        ├── security.tsx     ✅ Done — PIN 6 หลัก / Face ID / Touch ID (expo-local-authentication)
-        └── export.tsx       ✅ Done — Export PDF / CSV (expo-print + expo-sharing)
+        ├── index.tsx        หน้าหลักตั้งค่า
+        ├── tax-profile.tsx  ข้อมูลลดหย่อนภาษี
+        ├── categories.tsx   จัดการหมวดหมู่ (CRUD)
+        ├── notifications.tsx  ตั้งค่าการแจ้งเตือน (UI)
+        ├── security.tsx     PIN 6 หลัก / Face ID / Touch ID (expo-local-authentication)
+        └── export.tsx       Export PDF / CSV (expo-print + expo-sharing)
 ```
 
 ### State Management (Zustand)
 stores อยู่ที่ `apps/mobile/src/store/`
 **ทุก Store ยิงผ่าน Elysia API แล้ว (ไม่ยิง Supabase ตรงอีกต่อไป ยกเว้น auth)**
 
-- `auth.store.ts`        ✅ Session + User + Auth initialize — ใช้ Supabase Auth ตรง
-- `wallet.store.ts`      ✅ → api.get/post/put/delete('/wallets')
-- `transaction.store.ts` ✅ → api.get('/transactions?type=&from=&to=&limit=') + post + delete (URLSearchParams) + `selectedYear/selectedMonth` + `setSelectedMonth(y,m)` auto-refetch สำหรับ Monthly Pie
-- `tax.store.ts`         ✅ → api.post('/tax/calculate', { grossIncome, deductions }) — ลบ fetchFromSupabase ออกแล้ว
-- `tax-profile.store.ts` ✅ → api.get/put('/tax/profile') + loading state
-- `category.store.ts`    ✅ → api.get/post/delete('/categories') + loading state + async CRUD
-- `scan.store.ts`        ✅ `pendingImageUri` + `ocrResult` ส่งข้อมูลจาก scanner → review
+- `auth.store.ts`         Session + User + Auth initialize — ใช้ Supabase Auth ตรง
+- `wallet.store.ts`       → api.get/post/put/delete('/wallets')
+- `transaction.store.ts`  → api.get('/transactions?type=&from=&to=&limit=') + post + delete (URLSearchParams) + `selectedYear/selectedMonth` + `setSelectedMonth(y,m)` auto-refetch สำหรับ Monthly Pie
+- `tax.store.ts`          → api.post('/tax/calculate', { grossIncome, deductions }) — ลบ fetchFromSupabase ออกแล้ว
+- `tax-profile.store.ts`  → api.get/put('/tax/profile') + loading state
+- `category.store.ts`     → api.get/post/delete('/categories') + loading state + async CRUD
+- `scan.store.ts`        `pendingImageUri` + `ocrResult` ส่งข้อมูลจาก scanner → review
 
 ### Services
 อยู่ที่ `apps/mobile/src/services/`
 
 - `supabase.ts`     — Supabase client (session เก็บใน `expo-secure-store`)
 - `auth.service.ts` — Auth helpers
-- `api.client.ts`   ✅ HTTP client — get/post/put/delete + auto attach Bearer token จาก Supabase session
-- `ocr.service.ts`  ✅ ML Kit OCR wrapper — `recognizeReceipt(uri)` → parse ยอดเงิน / วันที่ / isSlip / bank
+- `api.client.ts`   HTTP client — get/post/put/delete + auto attach Bearer token จาก Supabase session
+- `ocr.service.ts`  ML Kit OCR wrapper — `recognizeReceipt(uri)` → parse ยอดเงิน / วันที่ / isSlip / bank
 
 ### OCR Flow
 ```
