@@ -45,20 +45,22 @@ function getDateRange(period: ExportPeriod): { from: Date; to: Date } {
 }
 
 function generateHtml(transactions: Transaction[], period: string): string {
-  const income = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
-  const expense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0)
+  const income = transactions.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0)
+  const expense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(Number(t.amount)), 0)
 
-  const rows = transactions.map(t => `
+  const rows = transactions.map(t => {
+    const amt = Number(t.amount)
+    return `
     <tr>
       <td>${new Date(t.date).toLocaleDateString('th-TH')}</td>
       <td>${t.type === 'income' ? 'รายรับ' : t.type === 'expense' ? 'รายจ่าย' : 'โอน'}</td>
       <td>${t.category || '-'}</td>
       <td>${t.note || '-'}</td>
       <td style="text-align:right;color:${t.type === 'expense' ? '#FF5C7A' : '#00C896'}">
-        ${t.type === 'expense' ? '-' : '+'}฿${Math.abs(t.amount).toLocaleString('th-TH')}
+        ${t.type === 'expense' ? '-' : '+'}฿${Math.abs(amt).toLocaleString('th-TH')}
       </td>
     </tr>
-  `).join('')
+  `}).join('')
 
   return `
     <html>
@@ -96,7 +98,8 @@ function generateCsv(transactions: Transaction[]): string {
   const rows = transactions.map(t => {
     const date = new Date(t.date).toLocaleDateString('th-TH')
     const typeLabel = t.type === 'income' ? 'รายรับ' : t.type === 'expense' ? 'รายจ่าย' : 'โอน'
-    const amt = t.type === 'expense' ? -Math.abs(t.amount) : t.amount
+    const n = Number(t.amount)
+    const amt = t.type === 'expense' ? -Math.abs(n) : n
     return `${date},${typeLabel},"${t.category || '-'}","${t.note || '-'}",${amt}`
   }).join('\n')
   return header + rows

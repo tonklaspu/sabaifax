@@ -36,7 +36,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
     set({ loading: true, error: null })
     try {
       const res = await api.get('/wallets')
-      const wallets: Wallet[] = res.data ?? []
+      const wallets: Wallet[] = (res.data ?? []).map((w: any) => ({ ...w, balance: Number(w.balance) || 0 }))
       set({ wallets, totalBalance: calcTotal(wallets) })
     } catch (e: any) {
       set({ error: e.message })

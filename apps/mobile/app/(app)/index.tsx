@@ -263,7 +263,7 @@ function RecentTransactions({
 function BottomNav({ activeTab }: { activeTab: string }) {
   const tabs = [
     { icon: '🏠', label: 'ภาพรวม', route: '/(app)' },
-    { icon: '🧮', label: 'จำลองภาษี', route: '/(app)/tax' },
+    { icon: '📊', label: 'จำลองภาษี', route: '/(app)/tax' },
     { icon: '👜', label: 'กระเป๋า', route: '/(app)/wallet' },
     { icon: '⚙️', label: 'ตั้งค่า', route: '/(app)/settings' },
   ]
@@ -383,14 +383,14 @@ export default function DashboardScreen() {
         <RecentTransactions transactions={recentTransactions.map(tx => ({
   id: tx.id,
   title: tx.category || tx.note || 'ไม่มีชื่อ',
-  subtitle: tx.note || 'ทั่วไป',         // ✅ เปลี่ยนจาก note เป็น subtitle
+  subtitle: tx.note || 'ทั่วไป',
   amount: Number(tx.amount) || 0,
   type: tx.type,
-  icon: 'wallet',                      // ✅ เติม icon เข้าไปตามที่ UI บังคับ
-  time: new Date(tx.date || tx.created_at).toLocaleTimeString('th-TH', { 
-    hour: '2-digit', 
-    minute: '2-digit' 
-  }),                                  // ✅ เปลี่ยนจาก date เป็น time
+  icon: (tx as any).categoryIcon || (tx.type === 'income' ? '💰' : tx.type === 'transfer' ? '🔄' : '💸'),
+  time: new Date(tx.date || tx.created_at).toLocaleTimeString('th-TH', {
+    hour: '2-digit',
+    minute: '2-digit'
+  }),
 }))} />
         <View style={{ height: 100 }} />
       </ScrollView>

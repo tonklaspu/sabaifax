@@ -4,7 +4,7 @@ import { router } from 'expo-router'
 
 const TABS = [
   { icon: '🏠', label: 'ภาพรวม', route: '/(app)' },
-  { icon: '🧮', label: 'จำลองภาษี', route: '/(app)/tax' },
+  { icon: '📊', label: 'จำลองภาษี', route: '/(app)/tax' },
   { icon: '👜', label: 'กระเป๋า', route: '/(app)/wallet' },
   { icon: '⚙️', label: 'ตั้งค่า', route: '/(app)/settings' },
 ]

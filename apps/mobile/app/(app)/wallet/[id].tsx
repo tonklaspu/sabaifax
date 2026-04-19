@@ -75,7 +75,8 @@ export default function WalletDetailScreen() {
     try {
       const params = new URLSearchParams({ wallet_id: id, limit: '30', sort: 'created_at:desc' })
       const res = await api.get(`/transactions?${params.toString()}`)
-      setTransactions(res?.data ?? [])
+      const rows = (res?.data ?? []).map((t: any) => ({ ...t, amount: Number(t.amount) || 0 }))
+      setTransactions(rows)
     } catch {
       // show empty
     } finally {
@@ -229,7 +230,7 @@ export default function WalletDetailScreen() {
                 note={tx.note}
                 amount={tx.amount}
                 type={tx.type}
-                date={tx.created_at}
+                date={(tx as any).date || tx.created_at}
               />
             ))
           )}

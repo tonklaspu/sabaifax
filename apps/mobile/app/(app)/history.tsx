@@ -71,7 +71,7 @@ function TransactionRow({ item }: { item: Transaction }) {
         <Text style={styles.rowDate}>{formatDate(item.date)}  {formatTime(item.date)}</Text>
       </View>
       <Text style={[styles.rowAmount, { color: TYPE_COLOR[item.type] }]}>
-        {formatAmount(item.amount, item.type)}
+        {formatAmount(Number(item.amount) || 0, item.type)}
       </Text>
     </TouchableOpacity>
   )
@@ -119,8 +119,8 @@ export default function HistoryScreen() {
   }, [allTransactions])
 
   // Summary
-  const totalIncome  = allTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
-  const totalExpense = allTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
+  const totalIncome  = allTransactions.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0)
+  const totalExpense = allTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(Number(t.amount)), 0)
 
   const prevMonth = () => {
     if (month === 1) { setYear(y => y - 1); setMonth(12) }
@@ -223,8 +223,8 @@ export default function HistoryScreen() {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           renderItem={({ item: [date, txs] }) => {
-            const inc = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
-            const exp = txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
+            const inc = txs.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0)
+            const exp = txs.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(Number(t.amount)), 0)
             const d = new Date(date)
             const title = d.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' })
             return (

@@ -33,6 +33,9 @@ interface TransactionStore {
   deleteTransaction: (id: string) => Promise<void>
 }
 
+const normalizeTx = (t: any): Transaction => ({ ...t, amount: Number(t?.amount) || 0 })
+const normalizeList = (rows: any[]): Transaction[] => (rows ?? []).map(normalizeTx)
+
 export const useTransactionStore = create<TransactionStore>((set, get) => ({
   recentTransactions: [],
   allTransactions: [],
@@ -52,7 +55,7 @@ export const useTransactionStore = create<TransactionStore>((set, get) => ({
     set({ loading: true })
     try {
       const res = await api.get('/transactions?limit=10&sort=created_at:desc')
-      set({ recentTransactions: res?.data ?? [] })
+      set({ recentTransactions: normalizeList(res?.data) })
     } finally {
       set({ loading: false })
     }
@@ -90,17 +93,36 @@ export const useTransactionStore = create<TransactionStore>((set, get) => ({
         params.set('to', to)
       }
       const res = await api.get(`/transactions?${params.toString()}`)
-      set({ allTransactions: res?.data ?? [] })
+      set({ allTransactions: normalizeList(res?.data) })
     } finally {
       set({ loadingAll: false })
     }
   },
 
   createTransaction: async (data) => {
-    const res = await api.post('/transactions', data)
-    const row: Transaction = res?.data ?? res
+    const d = data as any
+    const body: any = {
+      type:   d.type,
+      amount: d.amount,
+      note:   d.note,
+      date:   d.date,
+      walletId:   d.walletId   ?? d.wallet_id,
+      toWalletId: d.toWalletId ?? d.to_wallet_id,
+      categoryId: d.categoryId ?? d.category_id,
+      isTaxDeductible: d.isTaxDeductible ?? d.is_tax_deductible,
+      receiptUrl: d.receiptUrl ?? d.receipt_url,
+      slipRef: d.slipRef,
+      bank: d.bank,
+      force: d.force,
+    }
+    Object.keys(body).forEach(k => body[k] === undefined && delete body[k])
+    const res = await api.post('/transactions', body)
+    const row = normalizeTx(res?.data ?? res)
     const updated = [row, ...get().recentTransactions].slice(0, 10)
     set({ recentTransactions: updated })
+    // refresh wallet balances (computed server-side จาก transactions)
+    const { useWalletStore } = await import('./wallet.store')
+    useWalletStore.getState().fetchWallets().catch(() => {})
   },
 
   updateTransaction: async (id, data) => {
@@ -111,11 +133,13 @@ export const useTransactionStore = create<TransactionStore>((set, get) => ({
       date: data.date,
       walletId: data.wallet_id,
     })
-    const updated = res?.data ?? res
+    const updated = normalizeTx(res?.data ?? res)
     set({
       recentTransactions: get().recentTransactions.map(t => t.id === id ? { ...t, ...updated } : t),
       allTransactions: get().allTransactions.map(t => t.id === id ? { ...t, ...updated } : t),
     })
+    const { useWalletStore } = await import('./wallet.store')
+    useWalletStore.getState().fetchWallets().catch(() => {})
   },
 
   deleteTransaction: async (id) => {
@@ -124,5 +148,7 @@ export const useTransactionStore = create<TransactionStore>((set, get) => ({
       recentTransactions: get().recentTransactions.filter(t => t.id !== id),
       allTransactions: get().allTransactions.filter(t => t.id !== id),
     })
+    const { useWalletStore } = await import('./wallet.store')
+    useWalletStore.getState().fetchWallets().catch(() => {})
   },
 }))

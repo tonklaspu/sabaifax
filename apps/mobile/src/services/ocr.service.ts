@@ -26,9 +26,14 @@ function extractAllAmounts(text: string): number[] {
 /** ดึงชื่อร้าน — บรรทัดบนสุดที่ไม่ใช่ตัวเลขล้วน */
 function extractMerchantName(text: string): string | null {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+  // บรรทัดที่เป็น date/time: มีตัวเลขขึ้นต้น + เดือนย่อ/colon/จุด — ข้ามทิ้ง
+  const dateLike = /^\d{1,2}[\s.\-/](?:[A-Za-zก-๙.]{1,6}|\d{1,2})[\s.\-/]\d{2,4}/
+  const timeLike = /\d{1,2}:\d{2}/
   for (const line of lines.slice(0, 5)) {
     if (line.length < 3) continue
     if (/^\d[\d\s,./:-]*$/.test(line)) continue
+    if (dateLike.test(line)) continue
+    if (timeLike.test(line)) continue
     return line
   }
   return null
